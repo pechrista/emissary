@@ -20,6 +20,7 @@ import emissary.config.ServiceConfigGuide;
 import emissary.core.BaseDataObject;
 import emissary.core.DataObjectFactory;
 import emissary.core.IBaseDataObject;
+import emissary.output.DropOffUtil.FileTypeCheckParameter;
 import emissary.test.core.UnitTest;
 import emissary.util.TimeUtil;
 import org.junit.After;
@@ -466,51 +467,119 @@ public class DropOffUtilTest extends UnitTest {
     }
 
     @Test
-    public void testGetFileType() {
+    public void testDeprecatedGetFileType() {
         Map<String, String> metadata = new HashMap<>();
-        testFileType(metadata, "UNKNOWN", null);
+        testDeprecatedFileType(metadata, "UNKNOWN", null);
 
         String poppedForms = "myPoppedForms";
-        setupMetadata(metadata, poppedForms, DropOffUtil.FileTypeCheckParameter.POPPED_FORMS);
-        testFileType(metadata, poppedForms, null);
+        setupDeprecatedMetadata(metadata, poppedForms, DropOffUtil.FileTypeCheckParameter.POPPED_FORMS);
+        testDeprecatedFileType(metadata, poppedForms, null);
 
         String formsArg = "myFile";
-        setupMetadata(metadata, formsArg, DropOffUtil.FileTypeCheckParameter.FILETYPE);
-        testFileType(metadata, formsArg, formsArg);
+        setupDeprecatedMetadata(metadata, formsArg, DropOffUtil.FileTypeCheckParameter.FILETYPE);
+        testDeprecatedFileType(metadata, formsArg, formsArg);
 
         String finalId = "myFinalId";
-        setupMetadata(metadata, finalId, DropOffUtil.FileTypeCheckParameter.FINAL_ID);
+        setupDeprecatedMetadata(metadata, finalId, DropOffUtil.FileTypeCheckParameter.FINAL_ID);
         formsArg = "differentFileType";
-        testFileType(metadata, finalId, formsArg);
+        testDeprecatedFileType(metadata, finalId, formsArg);
 
         formsArg = "myFile  ";
         metadata.clear();
-        testFileType(metadata, "myFile", formsArg);
+        testDeprecatedFileType(metadata, "myFile", formsArg);
         assertEquals(formsArg,
                 metadata.get(DropOffUtil.FileTypeCheckParameter.COMPLETE_FILETYPE.getFieldName()));
 
         formsArg = "";
         String fontEncoding = "fontEncoding";
-        setupMetadata(metadata, fontEncoding, DropOffUtil.FileTypeCheckParameter.FONT_ENCODING);
-        testFileType(metadata, "TEXT", formsArg);
+        setupDeprecatedMetadata(metadata, fontEncoding, DropOffUtil.FileTypeCheckParameter.FONT_ENCODING);
+        testDeprecatedFileType(metadata, "TEXT", formsArg);
 
         metadata.clear();
         formsArg = " MSWORD";
-        testFileType(metadata, "MSWORD_FRAGMENT", formsArg);
+        testDeprecatedFileType(metadata, "MSWORD_FRAGMENT", formsArg);
 
         metadata.clear();
         formsArg = "QUOTED-PRINTABLE";
-        testFileType(metadata, "TEXT", formsArg);
+        testDeprecatedFileType(metadata, "TEXT", formsArg);
     }
 
-    private void setupMetadata(Map<String, String> metadata, String fieldValue, DropOffUtil.FileTypeCheckParameter fileTypeCheckParameter) {
+    private void setupDeprecatedMetadata(Map<String, String> metadata, String fieldValue, DropOffUtil.FileTypeCheckParameter fileTypeCheckParameter) {
         metadata.clear();
         metadata.put(fileTypeCheckParameter.getFieldName(), fieldValue);
     }
 
-    private void testFileType(Map<String, String> metadata, String expectedResults, String formsArg) {
+    private void testDeprecatedFileType(Map<String, String> metadata, String expectedResults, String formsArg) {
         String fileType;
         fileType = util.getFileType(metadata, formsArg);
+        assertEquals(expectedResults, fileType);
+    }
+
+    @Test
+    public void testGetFileType() {
+        final IBaseDataObject bdo = new BaseDataObject();
+
+        testFileType(bdo, "UNKNOWN", null);
+
+        String poppedForms = "myPoppedForms";
+        setupMetadata(bdo, poppedForms, DropOffUtil.FileTypeCheckParameter.POPPED_FORMS);
+        testFileType(bdo, poppedForms, null);
+
+        String formsArg = "myFile";
+        setupMetadata(bdo, formsArg, DropOffUtil.FileTypeCheckParameter.FILETYPE);
+        testFileType(bdo, formsArg, formsArg);
+
+        String finalId = "myFinalId";
+        setupMetadata(bdo, finalId, DropOffUtil.FileTypeCheckParameter.FINAL_ID);
+        formsArg = "differentFileType";
+        testFileType(bdo, finalId, formsArg);
+
+        formsArg = "";
+        String fontEncoding = "fontEncoding";
+        setupMetadata(bdo, fontEncoding, DropOffUtil.FileTypeCheckParameter.FONT_ENCODING);
+        testFileType(bdo, "TEXT", formsArg);
+
+        bdo.clearParameters();
+        formsArg = " MSWORD";
+        testFileType(bdo, "MSWORD_FRAGMENT", formsArg);
+
+        bdo.clearParameters();
+        formsArg = "QUOTED-PRINTABLE";
+        testFileType(bdo, "TEXT", formsArg);
+    }
+
+    @Test
+    public void testGetCompleteFileType() {
+        final IBaseDataObject bdo = new BaseDataObject();
+        String poppedForms = "PoppedForm1 PoppedForm2";
+
+        assertEquals(null, DropOffUtil.getCompleteFileType(bdo, null));
+
+        assertEquals(poppedForms, DropOffUtil.getCompleteFileType(bdo, poppedForms));
+
+        String formsArg = "myFile ";
+        setupMetadata(bdo, poppedForms, DropOffUtil.FileTypeCheckParameter.POPPED_FORMS);
+        testFileType(bdo, "myFile", formsArg);
+        assertEquals(poppedForms, DropOffUtil.getCompleteFileType(bdo, null));
+
+        bdo.putParameter(FileTypeCheckParameter.FILETYPE.getFieldName(), formsArg);
+
+        assertEquals(null, DropOffUtil.getCompleteFileType(bdo, null));
+
+        bdo.deleteParameter(FileTypeCheckParameter.FILETYPE.getFieldName());
+        bdo.putParameter(FileTypeCheckParameter.FINAL_ID.getFieldName(), "myFinalId");
+
+        assertEquals(null, DropOffUtil.getCompleteFileType(bdo, null));
+    }
+
+    private void setupMetadata(IBaseDataObject bdo, String fieldValue, DropOffUtil.FileTypeCheckParameter fileTypeCheckParameter) {
+        bdo.clearParameters();
+        bdo.putParameter(fileTypeCheckParameter.getFieldName(), fieldValue);
+    }
+
+    private void testFileType(IBaseDataObject bdo, String expectedResults, String formsArg) {
+        String fileType;
+        fileType = DropOffUtil.getFileType(bdo, formsArg);
         assertEquals(expectedResults, fileType);
     }
 }
